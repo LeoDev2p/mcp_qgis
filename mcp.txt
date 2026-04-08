@@ -1,0 +1,43 @@
+🗺️ Parte 1: Fase de Construcción (Paso a Paso)
+
+- Fase 1: Desarrollo Base (El "Cerebro" en la Nube - Claude/GPT)
+
+Aquí crearás el servidor MCP y lo probarás con modelos potentes de la nube. Es la fase más fácil para depurar errores de lógica.
+Entorno: Crea tu entorno virtual con uv e instala fastmcp.
+El Servidor: Escribe tu server.py usando FastMCP. Define herramientas que usen qgis.core (PyQGIS).
+Conexión Directa: Configura el archivo claude_desktop_config.json para que Claude Desktop ejecute tu script.
+Prueba de Concepto: Pídele a Claude: "Lista mis capas de QGIS". Si responde, tus "manos" ya funcionan.
+
+- Fase 2: Migración a Local (Ollama + AnythingLLM)
+
+Aquí eliminas la dependencia de la nube y las suscripciones costosas.
+Instalación: Descarga Ollama y corre un modelo (ej. llama3.1:8b).
+El Host: Instala AnythingLLM Desktop.
+Integración: En AnythingLLM, conecta Ollama como "Cerebro" y apunta a tu archivo server.py como "Custom MCP Server".
+Resultado: Ya tienes un asistente privado que funciona sin internet.
+
+- Fase 3: Escalabilidad y Producción (OpenClaw / Agentes)
+
+Aquí conviertes el chat en un sistema autónomo.
+Framework de Agentes: Configura OpenClaw o LangGraph.
+Flujos de Trabajo: Define "misiones". Ejemplo: "Revisa esta carpeta cada 10 min, si hay un archivo nuevo, usa mi MCP de QGIS para procesarlo".
+Persistencia: Usa tu conocimiento en SQLite para guardar un historial de las tareas que el MCP ha realizado en QGIS.
+
+📚 Parte 2: Ruta de Aprendizaje (Qué aprender)
+
+Dado que ya sabes Python, MVC y Bases de Datos, solo necesitas "actualizarte" en la programación asíncrona y moderna:
+1. Programación Asíncrona (asyncio) — Prioridad Alta
+MCP funciona de forma asíncrona (espera respuestas del software sin bloquearse).
+Conceptos: async, await, Event Loop.
+Por qué: FastMCP y las APIs modernas de IA funcionan sobre esto.
+2. uv y Gestión de Dependencias
+Conceptos: Proyectos (pyproject.toml), lockfiles, entornos efímeros.
+Por qué: Para que tu proyecto sea reproducible en cualquier PC sin errores de "librería no encontrada".
+3. FastMCP y JSON-RPC
+Conceptos: Cómo se estructuran los mensajes entre la IA y tu código.
+Por qué: Para entender cómo pasar datos complejos (como geometrías de mapas) sin que el sistema colapse.
+4. PyQGIS (La API de QGIS)
+Conceptos: QgsProject, QgsVectorLayer, processing.run().
+Por qué: Es lo que realmente hará el trabajo. Tu MCP es solo el cartero; PyQGIS es quien mueve los mapas.
+5. ¿Sockets? (Opcional pero útil)
+Realidad: No necesitas aprender Sockets desde cero para MCP, ya que la librería mcp se encarga de la capa de transporte (usualmente via stdio o http). Concéntrate mejor en APIs REST y JSON-RPC.
