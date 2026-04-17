@@ -48,12 +48,17 @@ class QgisMCPClient:
             self.writer.close()
             try:
                 await self.writer.wait_closed()
-            except Exception:
+            except (ConnectionError, EOFError):
                 pass
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
             self.writer = None
             self.reader = None
 
-    async def send_command(self, command_type, params=None, timeout=TIMEOUT_DEFAULT):
+    async def send_command(
+        self, command_type: str, params: dict | None = None, timeout=TIMEOUT_DEFAULT
+    ):
         if not self.writer or not self.reader:
             raise ConnectionError("Not connected to server")
 
@@ -76,7 +81,7 @@ class QgisMCPClient:
             return json.loads(resp_data.decode("utf-8"))
 
         except TimeoutError:
-            logger.warning("Socket operation timed out after %ds", timeout)
+            logger.warning(f"Socket operation timed out after {timeout}s")
             return {"status": "error", "message": "Connection timed out"}
         except asyncio.IncompleteReadError:
             raise ConnectionError("Connection closed by server")

@@ -1,12 +1,36 @@
 import contextlib
 import json
 import struct
+import sys
 from pathlib import Path
 from typing import ClassVar
 
-from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsSettings
+import processing
+from qgis.core import (
+    Qgis,
+    QgsApplication,
+    QgsClassificationEqualInterval,
+    QgsClassificationJenks,
+    QgsClassificationQuantile,
+    QgsCategorizedSymbolRenderer,
+    QgsFeatureRequest,
+    QgsFillSymbol,
+    QgsGraduatedSymbolRenderer,
+    QgsLineSymbol,
+    QgsMarkerSymbol,
+    QgsMessageLog,
+    QgsProject,
+    QgsRasterLayer,
+    QgsRendererCategory,
+    QgsRendererRange,
+    QgsSettings,
+    QgsSingleSymbolRenderer,
+    QgsStyle,
+    QgsSymbol,
+    QgsVectorLayer,
+)
+from qgis.PyQt.QtGui import QColor, QDesktopServices, QIcon
 from qgis.PyQt.QtCore import QObject, Qt, QUrl
-from qgis.PyQt.QtGui import QDesktopServices, QIcon
 from qgis.PyQt.QtNetwork import QHostAddress, QTcpServer
 from qgis.PyQt.QtWidgets import (
     QAction,
@@ -22,16 +46,17 @@ from qgis.PyQt.QtWidgets import (
     QWidgetAction,
 )
 
+# Assets route configuration
 BASE_DIR = Path(__file__).resolve().parent
 PATH_ASSETS = BASE_DIR / "assets"
 
-_DEFAULT_HOST = "localhost"
-_DEFAULT_PORT = 9876
+_HOST = "localhost"
+_PORT = 9876
 _RECV_CHUNK_SIZE = 65536
 _MAX_MESSAGE_SIZE = 10 * 1024 * 1024  # 10 MB
 _HEADER_STRUCT = struct.Struct(">I")
 
-# ── Message levels ───────────────────────────────────────────────────
+# ---------- Message levels -----------------------
 try:
     MSG_INFO = Qgis.MessageLevel.Info
 except AttributeError:
@@ -48,6 +73,11 @@ except AttributeError:
     MSG_CRITICAL = Qgis.Critical
 
 try:
+    MSG_SUCCESS = Qgis.MessageLevel.Success
+except AttributeError:
+    MSG_SUCCESS = MSG_INFO  # Fallback for older QGIS versions
+
+try:
     TOOLBUTTON_MENU_POPUP = QToolButton.ToolButtonPopupMode.MenuButtonPopup
 except AttributeError:
     TOOLBUTTON_MENU_POPUP = QToolButton.MenuButtonPopup
@@ -57,6 +87,8 @@ try:
 except AttributeError:
     TOOLBUTTON_ICON_ONLY = Qt.ToolButtonIconOnly
 
+# * ------- Qgis server -----------------
+
 
 class QgisMCPServer(QObject):
     """Server class to handle network connections and execute QGIS commands natively with Qt."""
@@ -64,7 +96,7 @@ class QgisMCPServer(QObject):
     LOG_TAG: ClassVar[str] = "MCP"
     MAX_CLIENTS: ClassVar[int] = 10
 
-    def __init__(self, host=_DEFAULT_HOST, port=_DEFAULT_PORT, iface=None):
+    def __init__(self, host=_HOST, port=_PORT, iface=None):
         super().__init__()
         self.host = host
         self.port = port
@@ -87,11 +119,14 @@ class QgisMCPServer(QObject):
             QgsMessageLog.logMessage(
                 f"QGIS MCP server (QtNative) started on {self.host}:{self.port}",
                 self.LOG_TAG,
+                MSG_INFO,
             )
             return True
         else:
             QgsMessageLog.logMessage(
-                f"Failed to start server: {self.server.errorString()}", self.LOG_TAG
+                f"Failed to start server: {self.server.errorString()}",
+                self.LOG_TAG,
+                MSG_WARNING,
             )
             self.server = None
             return False
@@ -175,7 +210,18 @@ class QgisMCPServer(QObject):
 
             handlers = {
                 "ping": self.ping,
-                "buscador_dinamico_mcp": self.buscador_dinamico_mcp,
+                "search_geoprocessing_tools": self.search_geoprocessing_tools,
+                "get_algorithm_details": self.get_algorithm_details,
+                "run_processing": self.run_processing,
+                "get_project_context": self.get_project_context,
+                "get_layer_features": self.get_layer_features,
+                "get_selection": self.get_selection,
+                "load_layer_from_path": self.load_layer_from_path,
+                "save_project": self.save_project,
+                "remove_layer": self.remove_layer,
+                "delete_file": self.delete_file,
+                "show_message": self.show_message,
+                "execute_code": self.execute_code,
             }
 
             handler = handlers.get(cmd_type)
@@ -237,14 +283,12 @@ class QgisMCPServer(QObject):
 
         QgsMessageLog.logMessage("QGIS MCP server stopped", self.LOG_TAG, MSG_INFO)
 
-    # -----------------------------------------------------------------------
-    # Command handlers
-    # -----------------------------------------------------------------------
+    # *  Command handlers ----------------------------------------
 
     def ping(self, **kwargs):
         return {"pong": True}
 
-    def buscador_dinamico_mcp(self, busqueda: str, **kwargs):
+    def search_geoprocessing_tools(self, busqueda: str, **kwargs):
         registry = QgsApplication.processingRegistry()
         algs = registry.algorithms()
 
@@ -262,7 +306,7 @@ class QgisMCPServer(QObject):
             for a in filtrados[:15]
         ]
 
-    def get_algorithm_details(alg_id):
+    def get_algorithm_details(self, alg_id, **kwargs):
         alg = QgsApplication.processingRegistry().algorithmById(alg_id)
         if not alg:
             return {"error": "Algoritmo no encontrado"}
@@ -282,6 +326,321 @@ class QgisMCPServer(QObject):
 
         return detalles
 
+    def run_processing(self, algorithm: str, parameter: dict = None, **kwargs) -> dict:
+        """Run a QGIS Processing algorithm.
+
+        Args:
+            algorithm: Full algorithm ID (e.g. 'native:buffer').
+            parameter: Dict of algorithm parameters with exact names from
+                       get_algorithm_details (e.g. {'INPUT': 'path', 'DISTANCE': 100}).
+        """
+        try:
+            params = parameter or {}
+            output = processing.run(algorithm, params)
+            return {
+                "algorithm": algorithm,
+                "output": {key: str(value) for key, value in output.items()},
+            }
+        except Exception as e:
+            raise Exception(f"Processing error: {str(e)}")
+
+    def get_project_context(self, **kwargs):
+        layers = QgsProject.instance().mapLayers().values()
+        context = []
+        for layer in layers:
+            # Obtenemos los nombres de los campos si es vectorial
+            fields = [f.name() for f in layer.fields()] if layer.type() == 0 else []
+
+            context.append(
+                {
+                    "name": layer.name(),
+                    "id": layer.id(),
+                    "type": "Vector" if layer.type() == 0 else "Raster",
+                    "geometry": layer.geometryType() if layer.type() == 0 else "N/A",
+                    "source": layer.source(),
+                    "fields": fields,
+                    "crs": layer.crs().authid(),
+                }
+            )
+        return context
+
+    def load_layer_from_path(self, path: str, name: str = "Nueva Capa", **kwargs):
+        import os
+
+        if not os.path.exists(path):
+            return {"error": f"La ruta {path} no existe"}
+
+        # Detectar si es raster o vector por extensión
+        ext = os.path.splitext(path)[1].lower()
+        if ext in [".shp", ".gpkg", ".geojson", ".kml", ".csv"]:
+            layer = QgsVectorLayer(path, name, "ogr")
+        elif ext in [".tif", ".tiff", ".asc", ".img"]:
+            layer = QgsRasterLayer(path, name, "gdal")
+        else:
+            return {"error": "Formato no soportado"}
+
+        if not layer.isValid():
+            return {"error": "La capa no es válida o está corrupta"}
+
+        QgsProject.instance().addMapLayer(layer)
+        return {"status": "success", "layer_id": layer.id(), "name": layer.name()}
+
+    def save_project(self, path: str = "", **kwargs) -> dict:
+        """Save the current QGIS project to disk.
+
+        Args:
+            path: Absolute file path where the project will be saved
+                  (.qgz or .qgs extension). If empty, saves to the
+                  project's current path (must have been saved before).
+        """
+        import os
+
+        project = QgsProject.instance()
+
+        if not path:
+            current = project.fileName()
+            if not current:
+                return {"error": "El proyecto no tiene ruta. Indicá una ruta con el parámetro 'path'."}
+            path = current
+
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as e:
+                return {"error": f"No se pudo crear el directorio: {e}"}
+
+        ok = project.write(path)
+        if ok:
+            return {
+                "status": "success",
+                "path": path,
+                "message": f"Proyecto guardado en {path}",
+            }
+        return {"error": f"QGIS no pudo guardar el proyecto en {path}"}
+
+    def remove_layer(self, layer_id: str, **kwargs) -> dict:
+        """Remove a layer from the QGIS project by ID (does not delete the file)."""
+        project = QgsProject.instance()
+        layer = project.mapLayer(layer_id)
+        if not layer:
+            return {"error": f"Capa no encontrada: {layer_id}"}
+        name = layer.name()
+        project.removeMapLayer(layer_id)
+        return {
+            "status": "success",
+            "message": f"Capa '{name}' eliminada del proyecto (archivo en disco intacto)",
+        }
+
+    def delete_file(self, path: str, **kwargs) -> dict:
+        """Delete a project file (.qgz / .qgs) from disk permanently.
+
+        Restricted to QGIS project file extensions for safety.
+        The confirmation dialog is handled on the server side before this executes.
+        """
+        import os
+
+        allowed_ext = {".qgz", ".qgs"}
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in allowed_ext:
+            return {
+                "error": (
+                    f"Solo se pueden eliminar archivos de proyecto QGIS (.qgz, .qgs). "
+                    f"Extensión recibida: '{ext}'"
+                )
+            }
+
+        if not os.path.exists(path):
+            return {"error": f"El archivo no existe: {path}"}
+
+        try:
+            os.remove(path)
+            return {"status": "success", "message": f"Archivo eliminado: {path}"}
+        except OSError as e:
+            return {"error": f"No se pudo eliminar el archivo: {e}"}
+
+    def get_layer_features(
+        self,
+        layer_id: str,
+        limit: int = 10,
+        offset: int = 0,
+        filter_expression: str = "",
+        include_geometry: bool = False,
+        **kwargs,
+    ) -> dict:
+        """Read features from a vector layer and return them as a JSON-safe dict.
+
+        Supports pagination (limit/offset) and QGIS expression filtering.
+        """
+        project = QgsProject.instance()
+        layer = project.mapLayer(layer_id)
+        if not layer:
+            return {"error": f"Capa no encontrada: {layer_id}"}
+        if not isinstance(layer, QgsVectorLayer):
+            return {"error": "get_layer_features solo funciona con capas vectoriales"}
+
+        fields = [f.name() for f in layer.fields()]
+
+        request = QgsFeatureRequest()
+        if filter_expression:
+            request.setFilterExpression(filter_expression)
+
+        features_out = []
+        skipped = 0
+        for feat in layer.getFeatures(request):
+            if skipped < offset:
+                skipped += 1
+                continue
+
+            attrs = {}
+            for field in fields:
+                val = feat[field]
+                if isinstance(val, (int, float, str, bool, type(None))):
+                    attrs[field] = val
+                else:
+                    attrs[field] = str(val)
+
+            feat_dict = {"id": feat.id(), "attributes": attrs}
+
+            if include_geometry:
+                geom = feat.geometry()
+                if geom and not geom.isEmpty():
+                    feat_dict["geometry_wkt"] = geom.asWkt(precision=6)
+
+            features_out.append(feat_dict)
+            if len(features_out) >= limit:
+                break
+
+        return {
+            "layer_id": layer_id,
+            "layer_name": layer.name(),
+            "total_features": layer.featureCount(),
+            "returned": len(features_out),
+            "offset": offset,
+            "limit": limit,
+            "fields": fields,
+            "features": features_out,
+        }
+
+    def get_selection(self, layer_id: str, **kwargs) -> dict:
+        """Return the features currently selected by the user on the QGIS canvas."""
+        project = QgsProject.instance()
+        layer = project.mapLayer(layer_id)
+        if not layer:
+            return {"error": f"Capa no encontrada: {layer_id}"}
+        if not isinstance(layer, QgsVectorLayer):
+            return {"error": "La selección solo aplica a capas vectoriales"}
+
+        fields = [f.name() for f in layer.fields()]
+        selected = layer.selectedFeatures()
+
+        features_out = []
+        for feat in selected:
+            attrs = {}
+            for field in fields:
+                val = feat[field]
+                if isinstance(val, (int, float, str, bool, type(None))):
+                    attrs[field] = val
+                else:
+                    attrs[field] = str(val)
+            geom = feat.geometry()
+            feat_dict = {"id": feat.id(), "attributes": attrs}
+            if geom and not geom.isEmpty():
+                feat_dict["geometry_wkt"] = geom.asWkt(precision=6)
+            features_out.append(feat_dict)
+
+        return {
+            "layer_id": layer_id,
+            "layer_name": layer.name(),
+            "selected_count": len(features_out),
+            "fields": fields,
+            "features": features_out,
+        }
+
+    def show_message(self, text: str, level: str = "info", duration: int = 5, **kwargs) -> dict:
+        """Display a message in the QGIS message bar for user feedback."""
+        if not self.iface:
+            return {"error": "iface no disponible — el servidor no fue iniciado desde el plugin"}
+
+        level_map = {
+            "info":    MSG_INFO,
+            "warning": MSG_WARNING,
+            "error":   MSG_CRITICAL,
+            "success": MSG_SUCCESS,
+        }
+        qgis_level = level_map.get(level.lower(), MSG_INFO)
+
+        self.iface.messageBar().pushMessage(
+            "Claude MCP",
+            text,
+            level=qgis_level,
+            duration=duration,
+        )
+        return {"status": "success", "message": f"Mostrado en QGIS: {text}"}
+
+    def execute_code(self, code: str, **kwargs):
+        """
+        Ejecuta código Python arbitrario en el entorno de QGIS.
+
+        El contexto de ejecución expone las clases e instancias más usadas
+        para que el LLM no necesite importar nada manualmente:
+        """
+        try:
+            iface_obj = getattr(sys.modules.get("qgis.utils"), "iface", None)
+            globals_dict = {
+                # -- Proyecto y UI --
+                "QgsProject":    QgsProject,
+                "QgsApplication": QgsApplication,
+                "iface":         iface_obj,
+                "canvas":        iface_obj.mapCanvas() if iface_obj else None,
+                # -- Geoprocesamiento --
+                "processing":    sys.modules.get("processing"),
+                # -- Simbología: renderers --
+                "QgsGraduatedSymbolRenderer":   QgsGraduatedSymbolRenderer,
+                "QgsCategorizedSymbolRenderer": QgsCategorizedSymbolRenderer,
+                "QgsSingleSymbolRenderer":      QgsSingleSymbolRenderer,
+                "QgsRendererRange":    QgsRendererRange,
+                "QgsRendererCategory": QgsRendererCategory,
+                # -- Simbología: símbolos --
+                "QgsSymbol":      QgsSymbol,
+                "QgsFillSymbol":  QgsFillSymbol,
+                "QgsLineSymbol":  QgsLineSymbol,
+                "QgsMarkerSymbol": QgsMarkerSymbol,
+                # -- Clasificación automática --
+                "QgsClassificationJenks":        QgsClassificationJenks,
+                "QgsClassificationQuantile":     QgsClassificationQuantile,
+                "QgsClassificationEqualInterval": QgsClassificationEqualInterval,
+                # -- Estilos y color --
+                "QgsStyle": QgsStyle,
+                "QColor":   QColor,
+            }
+            # Capture stdout so print() statements are visible to the LLM
+            import io
+            stdout_capture = io.StringIO()
+            globals_dict["_result"] = None  # LLM can set this to return structured data
+
+            import sys as _sys
+            _old_stdout = _sys.stdout
+            _sys.stdout = stdout_capture
+            try:
+                exec(code, globals_dict)
+            finally:
+                _sys.stdout = _old_stdout
+
+            output = stdout_capture.getvalue()
+            result = globals_dict.get("_result")
+
+            response = {"status": "success"}
+            if output:
+                response["output"] = output.strip()
+            if result is not None:
+                response["result"] = result
+            if not output and result is None:
+                response["message"] = "Código ejecutado correctamente"
+            return response
+        except Exception as e:
+            return {"error": f"Error de ejecución: {str(e)}"}
+
 
 class QgisMCPPlugin:
     """Main plugin class for QGIS MCP"""
@@ -296,7 +655,7 @@ class QgisMCPPlugin:
         self.action = None
         self.help_action = None
         self.tool_button = None
-        self._toolbar_action = None  # the action wrapping the tool button
+        self._toolbar_action = None 
 
     def _logo_icon(self):
         """Load the MCP logo from the plugin directory."""
@@ -309,13 +668,13 @@ class QgisMCPPlugin:
         # Main action (used for menu entry + click handler)
         self.action = QAction(self._logo_icon(), "Run MCP", self.iface.mainWindow())
         self.action.setCheckable(True)
-        self.action.setToolTip(f"Start MCP server on port {_DEFAULT_PORT}")
+        self.action.setToolTip(f"Start MCP server on port {_PORT}")
         self.action.triggered.connect(self.toggle_server)
 
         # Port config in dropdown menu
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1024, 65535)
-        self.port_spin.setValue(_DEFAULT_PORT)
+        self.port_spin.setValue(_PORT)
         self.port_spin.setPrefix("Port: ")
         self.port_spin.valueChanged.connect(self._save_port)
 
@@ -364,9 +723,7 @@ class QgisMCPPlugin:
         self.iface.addPluginToMenu("QGIS MCP", self.help_action)
 
         # Restore saved port
-        saved_port = settings.value(
-            f"{self.SETTINGS_PREFIX}/port", _DEFAULT_PORT, type=int
-        )
+        saved_port = settings.value(f"{self.SETTINGS_PREFIX}/port", _PORT, type=int)
         self.port_spin.setValue(saved_port)
 
         # Auto-start if enabled
