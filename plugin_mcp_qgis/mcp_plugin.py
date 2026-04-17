@@ -299,8 +299,8 @@ class QgisMCPServer(QObject):
         return [
             {
                 "id": a.id(),
-                "titulo": a.displayName(),
-                "descripcion_corta": a.shortDescription(),
+                "title": a.displayName(),
+                "description_short": a.shortDescription(),
                 "tags": a.tags(),
             }
             for a in filtrados[:15]
@@ -309,18 +309,18 @@ class QgisMCPServer(QObject):
     def get_algorithm_details(self, alg_id, **kwargs):
         alg = QgsApplication.processingRegistry().algorithmById(alg_id)
         if not alg:
-            return {"error": "Algoritmo no encontrado"}
+            return {"error": "Algorithm not found"}
 
-        detalles = {"id": alg.id(), "nombre": alg.displayName(), "parametros": []}
+        detalles = {"id": alg.id(), "name": alg.displayName(), "parameters": []}
 
         # Esto le dice a Claude EXACTAMENTE qué escribir en el JSON
         for param in alg.parameterDefinitions():
-            detalles["parametros"].append(
+            detalles["parameters"].append(
                 {
-                    "nombre": param.name(),
-                    "descripcion": param.description(),
-                    "tipo": str(type(param)),
-                    "valor_defecto": param.defaultValue(),
+                    "name": param.name(),
+                    "description": param.description(),
+                    "type": str(type(param)),
+                    "default_value": param.defaultValue(),
                 }
             )
 
@@ -368,7 +368,7 @@ class QgisMCPServer(QObject):
         import os
 
         if not os.path.exists(path):
-            return {"error": f"La ruta {path} no existe"}
+            return {"error": f"The path {path} does not exist"}
 
         # Detectar si es raster o vector por extensión
         ext = os.path.splitext(path)[1].lower()
@@ -377,10 +377,10 @@ class QgisMCPServer(QObject):
         elif ext in [".tif", ".tiff", ".asc", ".img"]:
             layer = QgsRasterLayer(path, name, "gdal")
         else:
-            return {"error": "Formato no soportado"}
+            return {"error": "Format not supported"}
 
         if not layer.isValid():
-            return {"error": "La capa no es válida o está corrupta"}
+            return {"error": "The layer is invalid or corrupt"}
 
         QgsProject.instance().addMapLayer(layer)
         return {"status": "success", "layer_id": layer.id(), "name": layer.name()}
@@ -400,7 +400,7 @@ class QgisMCPServer(QObject):
         if not path:
             current = project.fileName()
             if not current:
-                return {"error": "El proyecto no tiene ruta. Indicá una ruta con el parámetro 'path'."}
+                return {"error": "The project has no path. Specify a path using the 'path' parameter."}
             path = current
 
         directory = os.path.dirname(path)
@@ -408,28 +408,28 @@ class QgisMCPServer(QObject):
             try:
                 os.makedirs(directory, exist_ok=True)
             except OSError as e:
-                return {"error": f"No se pudo crear el directorio: {e}"}
+                return {"error": f"Could not create directory: {e}"}
 
         ok = project.write(path)
         if ok:
             return {
                 "status": "success",
                 "path": path,
-                "message": f"Proyecto guardado en {path}",
+                "message": f"Project saved in {path}",
             }
-        return {"error": f"QGIS no pudo guardar el proyecto en {path}"}
+        return {"error": f"QGIS could not save the project to {path}"}
 
     def remove_layer(self, layer_id: str, **kwargs) -> dict:
         """Remove a layer from the QGIS project by ID (does not delete the file)."""
         project = QgsProject.instance()
         layer = project.mapLayer(layer_id)
         if not layer:
-            return {"error": f"Capa no encontrada: {layer_id}"}
+            return {"error": f"Layer not found: {layer_id}"}
         name = layer.name()
         project.removeMapLayer(layer_id)
         return {
             "status": "success",
-            "message": f"Capa '{name}' eliminada del proyecto (archivo en disco intacto)",
+            "message": f"Layer '{name}' removed from project (file on disk intact)",
         }
 
     def delete_file(self, path: str, **kwargs) -> dict:
@@ -445,19 +445,19 @@ class QgisMCPServer(QObject):
         if ext not in allowed_ext:
             return {
                 "error": (
-                    f"Solo se pueden eliminar archivos de proyecto QGIS (.qgz, .qgs). "
-                    f"Extensión recibida: '{ext}'"
+                    "Only QGIS project files (.qgz, .qgs) can be deleted.",
+                    f"Received extension: '{ext}'"
                 )
             }
 
         if not os.path.exists(path):
-            return {"error": f"El archivo no existe: {path}"}
+            return {"error": f"The file does not exist: {path}"}
 
         try:
             os.remove(path)
             return {"status": "success", "message": f"Archivo eliminado: {path}"}
         except OSError as e:
-            return {"error": f"No se pudo eliminar el archivo: {e}"}
+            return {"error": f"Could not delete file: {e}"}
 
     def get_layer_features(
         self,
@@ -475,9 +475,9 @@ class QgisMCPServer(QObject):
         project = QgsProject.instance()
         layer = project.mapLayer(layer_id)
         if not layer:
-            return {"error": f"Capa no encontrada: {layer_id}"}
+            return {"error": f"Layer not found: {layer_id}"}
         if not isinstance(layer, QgsVectorLayer):
-            return {"error": "get_layer_features solo funciona con capas vectoriales"}
+            return {"error": "get_layer_features only works with vector layers"}
 
         fields = [f.name() for f in layer.fields()]
 
@@ -527,9 +527,9 @@ class QgisMCPServer(QObject):
         project = QgsProject.instance()
         layer = project.mapLayer(layer_id)
         if not layer:
-            return {"error": f"Capa no encontrada: {layer_id}"}
+            return {"error": f"Layer not found: {layer_id}"}
         if not isinstance(layer, QgsVectorLayer):
-            return {"error": "La selección solo aplica a capas vectoriales"}
+            return {"error": "The selection only applies to vector layers"}
 
         fields = [f.name() for f in layer.fields()]
         selected = layer.selectedFeatures()
@@ -560,7 +560,7 @@ class QgisMCPServer(QObject):
     def show_message(self, text: str, level: str = "info", duration: int = 5, **kwargs) -> dict:
         """Display a message in the QGIS message bar for user feedback."""
         if not self.iface:
-            return {"error": "iface no disponible — el servidor no fue iniciado desde el plugin"}
+            return {"error": "iface unavailable — the server was not started from the plugin"}
 
         level_map = {
             "info":    MSG_INFO,
@@ -580,10 +580,9 @@ class QgisMCPServer(QObject):
 
     def execute_code(self, code: str, **kwargs):
         """
-        Ejecuta código Python arbitrario en el entorno de QGIS.
-
-        El contexto de ejecución expone las clases e instancias más usadas
-        para que el LLM no necesite importar nada manualmente:
+        Run arbitrary Python code within the QGIS environment.
+        The execution context exposes the most frequently used classes and instances
+        so the LLM doesn't need to import anything manually:
         """
         try:
             iface_obj = getattr(sys.modules.get("qgis.utils"), "iface", None)
@@ -659,7 +658,7 @@ class QgisMCPPlugin:
 
     def _logo_icon(self):
         """Load the MCP logo from the plugin directory."""
-        icon_path = f"{PATH_ASSETS}/icono.ico"
+        icon_path = f"{PATH_ASSETS}/icons/icono.png"
         return QIcon(icon_path)
 
     def initGui(self):
@@ -741,7 +740,7 @@ class QgisMCPPlugin:
 
     def _green_logo_icon(self):
         """Load the green MCP logo for active state."""
-        icon_path = f"{PATH_ASSETS}/icono.ico"
+        icon_path = f"{PATH_ASSETS}/icono.png"
         return QIcon(icon_path)
 
     def _show_help(self):
