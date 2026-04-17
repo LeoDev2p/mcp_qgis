@@ -19,5 +19,3 @@ HEADER_STRUCT = struct.Struct(">I")
 # 2. Configuraciones que PUEDEN cambiar (Variables de entorno)
 PORT = int(os.environ.get("QGIS_MCP_PORT", 9876))
 HOST = os.environ.get("QGIS_MCP_HOST", "localhost")
-
-print(PATH_SKILLS)
