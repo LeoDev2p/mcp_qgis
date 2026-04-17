@@ -230,7 +230,9 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
 
 mcp = FastMCP(
     name="Qgis_mcp",
-    instructions="QGIS integration through the Model Context Protocol. Use tools for actions, resources for read-only data, prompts for workflows.",
+    instructions= """QGIS integration through the Model Context Protocol.
+        Use tools for actions, resources for read-only data, prompts for workflows.
+        Discover available geospatial skills with list_skills() before complex tasks.""",
     lifespan=server_lifespan,
 )
 
