@@ -24,7 +24,7 @@ uv run black --version
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 mcp_qgis/
@@ -56,7 +56,7 @@ mcp_qgis/
 ### 1. Function Naming
 
 ```python
-# ✅ GOOD - Verb + Noun, action-oriented
+# GOOD - Verb + Noun, action-oriented
 async def load_layer_from_path(path: str, name: str = None) -> dict:
     ...
 
@@ -66,7 +66,7 @@ async def run_geoprocessing_algorithm(algorithm_id: str, params: dict) -> dict:
 async def get_layer_features(layer_id: str, limit: int = 100) -> list[dict]:
     ...
 
-# ❌ BAD - Vague, without clear action
+# BAD - Vague, without clear action
 async def process_data(x):
     ...
 
@@ -105,7 +105,7 @@ async def load_layer_from_path(path: str, name: str = None) -> dict:
 ### 3. Argument Typing (Python types)
 
 ```python
-# ✅ GOOD - Python 3.10+ type hints
+# GOOD - Python 3.10+ type hints
 async def run_processing(
     algorithm_id: str,
     params: dict[str, Any],
@@ -114,7 +114,7 @@ async def run_processing(
     """Run QGIS processing algorithm."""
     ...
 
-# ❌ BAD - No types
+# BAD - No types
 async def run_processing(algorithm_id, params, output_path=None):
     ...
 ```
@@ -123,7 +123,7 @@ async def run_processing(algorithm_id, params, output_path=None):
 
 ---
 
-## 📋 Git Protocol
+## Git Protocol
 
 ### Branch Names
 
@@ -144,7 +144,7 @@ git checkout -b refactor/simplify-tcp-handler
 ### Commit Messages
 
 ```
-# ✅ GOOD - Clear, what + why
+# GOOD - Clear, what + why
 
 feat: add tool search_geoprocessing_tools
 
@@ -154,7 +154,7 @@ feat: add tool search_geoprocessing_tools
 
 Fixes #42
 
-# ❌ BAD
+# BAD
 
 fix: bugs
 updated stuff
@@ -174,7 +174,7 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
 ---
 
-## ✅ PR Checklist
+## PR Checklist
 
 Before pushing, verify:
 
@@ -202,7 +202,7 @@ Before pushing, verify:
 
 ---
 
-## 🔀 Contribution Flow (Step by Step)
+## Contribution Flow (Step by Step)
 
 1. **Fork and clone:**
    ```bash
@@ -247,11 +247,11 @@ Before pushing, verify:
 
 ---
 
-## 📞 Contact
+## Contact
 
 - Issues: [GitHub Issues](https://github.com/LeoDev2p/mcp_qgis/issues)
 - Discussions: [GitHub Discussions](https://github.com/LeoDev2p/mcp_qgis/discussions)
 
 ---
 
-**Thank you for contributing! 🙏**
+**Thank you for contributing!**

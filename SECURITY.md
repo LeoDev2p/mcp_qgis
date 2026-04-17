@@ -1,11 +1,11 @@
 # Security
 
-## 🔐 Responsible Disclosure Policy
+## Responsible Disclosure Policy
 
 If you find a vulnerability, **DO NOT open a public issue or PR**.
 
 **Contact:**
-- Email: **[security@leodev2p.com]** (replace with actual email)
+- Email: **[whoamy0608@gmail.com]** (replace with actual email)
 - Subject: `[SECURITY] QGIS MCP - Brief description`
 - Include:
   - Technical description
@@ -21,7 +21,7 @@ We'll agree on a public embargo (60-90 days) before announcing the fix.
 
 ---
 
-## 🎯 Threat Model
+## Threat Model
 
 ### What Permissions Does This MCP Request
 
@@ -37,14 +37,14 @@ The MCP exposes **all PyQGIS functions** to the LLM. This means:
 
 ### What This MCP Cannot Do
 
-- ❌ Access networks (no HTTP/HTTPS)
-- ❌ Execute system commands (no `os.system()` exposed)
-- ❌ Install packages (`pip` blocked)
-- ❌ Modify MCP code at runtime
+- Access networks (no HTTP/HTTPS)
+- Execute system commands (no `os.system()` exposed)
+- Install packages (`pip` blocked)
+- Modify MCP code at runtime
 
 ---
 
-## ✅ Input Validation
+## Input Validation
 
 ### Parameter Sanitization
 
@@ -84,19 +84,19 @@ def load_layer(path: str, name: str = None) -> dict:
 
 ---
 
-## 🌐 Data Privacy
+## Data Privacy
 
 ### 100% Local Processing
 
 **QGIS MCP does not send data to external servers:**
 
-✅ Local processing:
+Local processing:
 - File read/write: on your machine
 - Geospatial analysis: in QGIS Desktop (your RAM/CPU)
 - GRASS/SAGA algorithms: execute locally
 - Logs: stored in `mcp_qgis/log/` (your machine)
 
-❌ No remote connections:
+No remote connections:
 - No telemetry
 - No analytics
 - No cloud processing
@@ -116,7 +116,7 @@ def load_layer(path: str, name: str = None) -> dict:
 
 ---
 
-## 🛡️ Current Security Measures
+## Current Security Measures
 
 ### v0.1.0 (Current)
 
@@ -141,7 +141,7 @@ def load_layer(path: str, name: str = None) -> dict:
 
 ---
 
-## ⚠️ Known Risks
+## Known Risks
 
 ### 🔴 Critical
 
@@ -184,12 +184,12 @@ algorithm_id = "'; DROP TABLE layers; --"  # Not SQL, but we validate
 
 ---
 
-## 📢 Security Updates
+##  Updates
 
 ### How to Stay Informed
 
 - **GitHub:** Enable "Releases" notifications
-  - Settings → Notifications → Custom → Security alerts ✅
+  - Settings → Notifications → Custom → Security alerts 
 - **Email:** Subscribe to [security@leodev2p.com] (coming soon)
 - **RSS:** Releases feed (if you enable GitHub Releases)
 
@@ -205,7 +205,7 @@ algorithm_id = "'; DROP TABLE layers; --"  # Not SQL, but we validate
 
 ---
 
-## 🚨 Report Vulnerabilities
+## Report Vulnerabilities
 
 ### Email Template
 
@@ -235,7 +235,7 @@ Subject: [SECURITY] QGIS MCP - Short issue name
 
 ---
 
-## ❓ Security FAQ
+## Security FAQ
 
 **Q: Is it safe to use in production?**  
 A: No. v0.1.0 is experimental. Use only for development/testing. See v0.3.0+ for production.
@@ -251,4 +251,4 @@ A: Yes, contributions welcome. Use RestrictedPython. See [CONTRIBUTING.md](CONTR
 
 ---
 
-**⚠️ Remember: Use locally only. You've been warned.**
+**Remember: Use locally only. You've been warned.**

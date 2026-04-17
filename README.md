@@ -12,11 +12,12 @@
   [![License](https://img.shields.io/badge/License-MIT-gray.svg)](LICENSE)
 </div>
 
----
 
-## What is this MCP?
 
-The **Model Context Protocol (MCP)** is an Anthropic standard that allows LLMs (like Claude, Gemini, etc.) to access external tools and data in a structured way. This project **exposes the complete QGIS API** as MCP tools, allowing an LLM to naturally control QGIS Desktop:
+
+Connect [QGIS](https://qgis.org/) to [Claude AI](https://claude.ai/), [Antigravity](https://antigravity.ai/), [Gemini](https://gemini.google.com/) through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), enabling Claude to directly control QGIS — manage layers, edit features, run processing algorithms, render maps, and more.
+
+## Architecture
 
 - **No GUI:** Use natural language commands
 - **No REST API:** Local TCP socket communication
@@ -25,7 +26,7 @@ The **Model Context Protocol (MCP)** is an Anthropic standard that allows LLMs (
 
 ---
 
-## 🏗 MCP Architecture
+## MCP Architecture
 
 ```
 Claude  ←→  MCP Server (FastMCP)  ←→  TCP socket  ←→  QGIS Plugin (QTimer)  ←→  PyQGIS API
@@ -41,7 +42,7 @@ Claude  ←→  MCP Server (FastMCP)  ←→  TCP socket  ←→  QGIS Plugin (Q
 
 ---
 
-## 🛠 Technologies Used
+## Technologies Used
 
 - **QGIS** 3.22 LTR+ - Desktop GIS application
 - **FastMCP** - Model Context Protocol implementation in Python
@@ -52,7 +53,7 @@ Claude  ←→  MCP Server (FastMCP)  ←→  TCP socket  ←→  QGIS Plugin (Q
 
 ---
 
-## 📦 Installing uv
+## Installing uv
 
 **uv** is the package manager for this project. Install it for your OS:
 
@@ -71,11 +72,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv --version
 ```
 
-📖 [Official uv documentation](https://docs.astral.sh/uv/getting-started/installation/)
+ [Official uv documentation](https://docs.astral.sh/uv/getting-started/installation/)
 
 ---
 
-## ✅ Prerequisites
+## Prerequisites
 
 | Component | Version | Notes |
 |-----------|---------|-------|
@@ -92,7 +93,7 @@ uv --version
 
 ---
 
-## 🚀 Repository Installation and Configuration
+## Repository Installation and Configuration
 
 ### 1. Clone the repository
 ```bash
@@ -119,7 +120,7 @@ Copy-Item plugin_mcp_qgis -Destination "$env:APPDATA\QGIS\QGIS3\profiles\default
 1. **Open QGIS Desktop**
 2. **Menu:** Plugins → Manage and Install Plugins
 3. **Search:** "QGIS MCP Server" 
-4. **Check:** ✅ Enable
+4. **Check:** Enable
 5. **Close the window**
 6. In the toolbar, click the 🔌 **"QGIS MCP Server"** icon to activate the TCP server
 
@@ -135,11 +136,11 @@ set QGIS_MCP_HOST=localhost         # Host (always localhost in v0.1.0)
 set PYTHONPATH=C:\path\to\mcp_qgis  # Path to QGIS libs
 ```
 
-✅ **Ready.** The server is listening on `localhost:9876`
+**Ready.** The server is listening on `localhost:9876`
 
 ---
 
-## 🔌 LLM Configuration
+## LLM Configuration
 
 ### Claude Desktop
 
@@ -203,7 +204,7 @@ set PYTHONPATH=C:\path\to\mcp_qgis  # Path to QGIS libs
 
 ---
 
-## 🛠 Available Tools
+## Available Tools
 
 ### Layer Management
 | Tool | Description | Parameters |
@@ -241,7 +242,7 @@ Claude will use: `load_layer_from_path()` → `get_layer_features()`
 
 ---
 
-## 🎯 Skills (Extended Capabilities)
+##  Skills (Extended Capabilities)
 
 ### What are Skills?
 
@@ -285,51 +286,51 @@ Claude: "Explain how to use ndvi_calculator"
 
 ---
 
-## 🔒 Security
+## Security
 
-### ⚠️ Critical Warnings
+### Critical Warnings
 
 - **Local use only:** Do not expose on shared networks
 - **`execute_code` is powerful:** Executes Python without restrictions
 - **`delete_file` is destructive:** Permanently deletes data (no trash)
 
 ### Current Mitigations (v0.1.0)
-- ✅ TCP connection only on `localhost` (not remote)
-- ✅ Requires manual plugin activation
-- ✅ Runs as current user (no elevation)
-- ✅ All commands are logged
+- TCP connection only on `localhost` (not remote)
+- Requires manual plugin activation
+- Runs as current user (no elevation)
+- All commands are logged
 
 ### Planned Improvements (v0.3.0+)
 - [ ] RestrictedPython sandbox for `execute_code`
 - [ ] Token authentication
 - [ ] TLS encryption
 
-📖 **See [SECURITY.md](SECURITY.md) for complete details and Responsible Disclosure.**
+**See [SECURITY.md](SECURITY.md) for complete details and Responsible Disclosure.**
 
 ---
 
-## 📚 Contributing and Resources
+## Contributing and Resources
 
 ### For Contributors
-- 📖 [CONTRIBUTING.md](CONTRIBUTING.md) - Development guide
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guide
   - Setup with uv
   - Code standards
   - Pull Request workflow
 
 ### For Security
-- 🔒 [SECURITY.md](SECURITY.md) - Security policy
+- [SECURITY.md](SECURITY.md) - Security policy
   - Documented risks
   - Responsible disclosure
   - Patch SLA
 
 ### Other Resources
-- 🔗 [Model Context Protocol](https://modelcontextprotocol.io/)
-- 🗺 [QGIS Documentation](https://docs.qgis.org/)
-- 📦 [FastMCP GitHub](https://github.com/modelcontextprotocol/python-sdk)
-- 🐍 [uv Docs](https://docs.astral.sh/uv/)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [QGIS Documentation](https://docs.qgis.org/)
+- [FastMCP GitHub](https://github.com/modelcontextprotocol/python-sdk)
+- [uv Docs](https://docs.astral.sh/uv/)
 
 ---
 
-## 📄 License
+## License
 
 MIT License - See [LICENSE](LICENSE)
