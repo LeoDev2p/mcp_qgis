@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Definimos la ruta
 DIR_LOG = BASE_DIR / "log"
 PATH_ASSETS = BASE_DIR / "plugin_mcp_qgis" / "assets"
-PATH_SKILLS = BASE_DIR / "src" / "mcp_qgis" / "skills"
+PATH_SKILLS = os.getenv("PATH_SKILLS", "Skills")
 
 # Constantes técnicas
 RECV_CHUNK_SIZE = 65536

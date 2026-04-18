@@ -230,13 +230,13 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
 
 mcp = FastMCP(
     name="Qgis_mcp",
-    instructions= """QGIS integration through the Model Context Protocol.
+    instructions="""QGIS integration through the Model Context Protocol.
         Use tools for actions, resources for read-only data, prompts for workflows.
         Discover available geospatial skills with list_skills() before complex tasks.""",
     lifespan=server_lifespan,
 )
 
-#* ------------------------- MCP tools for QGIS control ------------------------------
+# * ------------------------- MCP tools for QGIS control ------------------------------
 
 
 @mcp.tool(
@@ -247,7 +247,7 @@ mcp = FastMCP(
 async def ping(ctx: Context) -> dict[str, Any]:
     """
     Check QGIS plugin server connectivity.
-    
+
     * Use before complex commands to ensure QGIS is available.
     * Returns 'pong' if connection is active.
     """
@@ -258,7 +258,7 @@ async def ping(ctx: Context) -> dict[str, Any]:
 async def search_geoprocessing_tools(query: str):
     """
     Search QGIS processing algorithms by name.
-    
+
     * Includes native tools, GRASS, SAGA, and plugins.
     * Use this to discover the exact `algorithm` ID needed to solve a spatial task.
     """
@@ -269,7 +269,7 @@ async def search_geoprocessing_tools(query: str):
 async def get_algorithm_details(alg_id: str) -> dict[str, Any]:
     """
     Get required parameters for a specific processing algorithm.
-    
+
     * Requires `alg_id` (discover this using `search_geoprocessing_tools`).
     """
     return await _send("get_algorithm_details", {"alg_id": alg_id})
@@ -279,7 +279,7 @@ async def get_algorithm_details(alg_id: str) -> dict[str, Any]:
 async def run_processing(algorithm: str, parameter: dict = {}) -> dict:
     """
     Execute a QGIS processing algorithm.
-    
+
     * Requires valid `algorithm` ID (find via `search_geoprocessing_tools`).
     * Requires `parameter` dict (discover exact keys via `get_algorithm_details`).
     * Returns a dictionary with generated layer IDs or output paths.
@@ -293,7 +293,7 @@ async def run_processing(algorithm: str, parameter: dict = {}) -> dict:
 async def get_project_context() -> list[dict]:
     """
     Return a snapshot of the active QGIS project state.
-    
+
     * Call this FIRST to understand loaded data (layers, fields, CRS).
     * Returns a list with ID, name, type, and attributes for all loaded layers.
     """
@@ -310,7 +310,7 @@ async def get_layer_features(
 ) -> dict:
     """
     Read rows from a vector layer's attribute table.
-    
+
     * Requires `layer_id` (obtain from `get_project_context`).
     * Use `limit` (max 100 recommended) and `offset` for pagination.
     * Use QGIS syntax in `filter_expression` to filter features (e.g. "area > 10").
@@ -332,7 +332,7 @@ async def get_layer_features(
 async def load_layer_from_path(path: str, name: str) -> dict:
     """
     Load a local spatial file (vector or raster) into the QGIS canvas.
-    
+
     * Requires an absolute file `path`.
     * Formats are auto-detected (.shp, .gpkg, .geojson, .tif, etc).
     * Makes data immediately visible to the user.
@@ -344,7 +344,7 @@ async def load_layer_from_path(path: str, name: str) -> dict:
 async def save_project(path: str = "") -> dict:
     """
     Save the active QGIS project to disk.
-    
+
     * Provide an absolute `path` (.qgz or .qgs) to save as a new file.
     * Omit `path` to silently overwrite the existing project file.
     """
@@ -355,7 +355,7 @@ async def save_project(path: str = "") -> dict:
 async def remove_layer(ctx: Context, layer_id: str) -> dict:
     """
     Remove a layer from the active project without deleting its source file.
-    
+
     * Requires `layer_id` (obtain from `get_project_context`).
     * Destructive action to the project state: triggers a user confirmation prompt.
     """
@@ -373,7 +373,7 @@ async def remove_layer(ctx: Context, layer_id: str) -> dict:
 async def delete_file(ctx: Context, path: str) -> dict:
     """
     Permanently delete a file from the filesystem.
-    
+
     * THIS CANNOT BE UNDONE.
     * Use ONLY when explicitly instructed by the user to delete a file.
     """
@@ -395,7 +395,7 @@ async def show_message(
 ) -> dict:
     """
     Display a temporary visual notification in the QGIS UI.
-    
+
     * Use this to inform the user about workflow progress (e.g. 'Processing layers...').
     * Valid `level` options: 'info', 'warning', 'error', 'success'.
     """
@@ -407,8 +407,10 @@ async def show_message(
 @mcp.tool()
 async def execute_code(code: str) -> dict:
     """
+    IMPORTANT: Do not use this tool without first validating the parameters with 'get_algorithm_tool', search_geoprocessing_tools.
+
     Execute arbitrary Python code inside the live QGIS environment.
-    
+
     * Available globals: QgsProject, iface, canvas, processing, and renderer classes.
     * Use `print()` to return plain text output.
     * Assign data to `_result` (e.g. `_result = <data>`) to return structured JSON to the LLM.
@@ -431,7 +433,7 @@ async def execute_code(code: str) -> dict:
 async def resource_project() -> str:
     """
     Live static snapshot of the active QGIS project state.
-    
+
     * Returns layers, paths, IDs, and metadata in read-only mode.
     * Analogous to calling `get_project_context`.
     """
@@ -450,7 +452,7 @@ async def resource_project() -> str:
 async def resource_selection(layer_id: str) -> str:
     """
     Read active user feature selection on the QGIS canvas.
-    
+
     * Inject a valid layer ID into `{layer_id}` (obtain from `get_project_context`).
     """
     try:
@@ -460,47 +462,66 @@ async def resource_selection(layer_id: str) -> str:
         return json.dumps({"error": str(exc)})
 
 
+# * ------- MCP Tools for Skills — Autonomous skill discovery by the LLM ---------------
 
-#* ------- MCP Tools for Skills — Autonomous skill discovery by the LLM ---------------
+
+def _get_all_skills():
+    """Helper to recursively find all .md files in PATH_SKILLS."""
+    all_skills = []
+    if not os.path.exists(PATH_SKILLS):
+        return all_skills
+
+    for root, _, files in os.walk(PATH_SKILLS):
+        for file in files:
+            if file.endswith(".md"):
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, PATH_SKILLS)
+                all_skills.append({
+                    "name": file[:-3],
+                    "rel_path": rel_path.replace("\\", "/"),
+                    "full_path": full_path
+                })
+    return all_skills
+
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def list_skills() -> dict:
     """
-    List all predefined geospatial skills and recipes available.
-    
+    List all predefined geospatial skills and recipes available recursively.
+
     * Check this for complex or vague tasks to see if a workflow is already implemented.
     """
-    if not os.path.exists(PATH_SKILLS):
-        return {"skills": [], "message": "No skills directory found."}
+    skills = _get_all_skills()
+    if not skills:
+        return {"skills": [], "message": f"No skills directory found at {PATH_SKILLS}."}
 
-    skills = []
-    for filename in os.listdir(PATH_SKILLS):
-        if filename.endswith(".md"):
-            skills.append(filename[:-3]) 
-
-    return {"skills": skills}
+    return {
+        "skills_root": str(PATH_SKILLS),
+        "skills": [
+            {"name": s["name"], "path": s["rel_path"]} for s in skills
+        ]
+    }
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
-async def read_skill(skill_name: str) -> dict:
+async def read_skill(skill_path: str) -> dict:
     """
     Read the exact markdown instruction steps for a specific skill.
-    
-    * Requires a `skill_name` obtained from `list_skills`.
+
+    * Requires a `skill_path` (relative path) obtained from `list_skills`.
     * Invoke this BEFORE attempting complex geoprocessing if a matching skill exists.
     """
-    filepath = f"{PATH_SKILLS}/{skill_name}.md"
+    filepath = os.path.join(PATH_SKILLS, skill_path)
     if not os.path.exists(filepath):
-        return {"error": f"Skill '{skill_name}' no encontrado."}
+        return {"error": f"Skill at '{skill_path}' no encontrado."}
 
     with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
-    return {"skill_name": skill_name, "instructions": content}
+    return {"skill_path": skill_path, "instructions": content}
 
 
-
-#* --------- MCP Prompts — Dynamic loading of workflows from the skills directory -------
+# * --------- MCP Prompts — Dynamic loading of workflows from the skills directory -------
 
 
 def _register_skills_as_prompts():
@@ -509,25 +530,28 @@ def _register_skills_as_prompts():
     This allows Claude to discover complex workflows natively without hardcoding
     them inside the server script.
     """
-    if not os.path.exists(PATH_SKILLS):
-        return
+    skills = _get_all_skills()
+    
+    for skill in skills:
+        skill_name = skill["name"]
+        filepath = skill["full_path"]
+        
+        # Unique name for prompt if nested to avoid collisions
+        # e.g. "spectral_analysis_fire_severity"
+        prompt_name = skill["rel_path"].replace("/", "_").replace(".md", "").lower()
 
-    for filename in os.listdir(PATH_SKILLS):
-        if filename.endswith(".md"):
-            skill_name = filename[:-3]
-            filepath = os.path.join(PATH_SKILLS, filename)
+        # Closure to bind the specific name and path per loop iteration
+        def _bind_prompt(name=prompt_name, path=filepath, display_name=skill_name):
+            @mcp.prompt(
+                name,
+                description=f"Ejecuta el Skill geoespacial: {display_name.replace('_', ' ')}",
+            )
+            def dynamic_prompt() -> str:
+                with open(path, encoding="utf-8") as f:
+                    return f.read()
 
-            # Closure to bind the specific name and path per loop iteration
-            def _bind_prompt(name=skill_name, path=filepath):
-                @mcp.prompt(
-                    name,
-                    description=f"Ejecuta el Skill geoespacial: {name.replace('_', ' ')}",
-                )
-                def dynamic_prompt() -> str:
-                    with open(path, encoding="utf-8") as f:
-                        return f.read()
+        _bind_prompt()
 
-            _bind_prompt()
 
 
 _register_skills_as_prompts()

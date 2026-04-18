@@ -9,10 +9,10 @@ import processing
 from qgis.core import (
     Qgis,
     QgsApplication,
+    QgsCategorizedSymbolRenderer,
     QgsClassificationEqualInterval,
     QgsClassificationJenks,
     QgsClassificationQuantile,
-    QgsCategorizedSymbolRenderer,
     QgsFeatureRequest,
     QgsFillSymbol,
     QgsGraduatedSymbolRenderer,
@@ -29,8 +29,8 @@ from qgis.core import (
     QgsSymbol,
     QgsVectorLayer,
 )
-from qgis.PyQt.QtGui import QColor, QDesktopServices, QIcon
 from qgis.PyQt.QtCore import QObject, Qt, QUrl
+from qgis.PyQt.QtGui import QColor, QDesktopServices, QIcon
 from qgis.PyQt.QtNetwork import QHostAddress, QTcpServer
 from qgis.PyQt.QtWidgets import (
     QAction,
@@ -286,14 +286,16 @@ class QgisMCPServer(QObject):
     # *  Command handlers ----------------------------------------
 
     def ping(self, **kwargs):
+        """Check connection between MCP server and QGIS plugin."""
         return {"pong": True}
 
-    def search_geoprocessing_tools(self, busqueda: str, **kwargs):
+    def search_geoprocessing_tools(self, search: str, **kwargs):
+        """Search for QGIS processing algorithms by display name."""
         registry = QgsApplication.processingRegistry()
         algs = registry.algorithms()
 
         # Filtrar objetos
-        filtrados = [a for a in algs if busqueda.lower() in a.displayName().lower()]
+        filtrados = [a for a in algs if search.lower() in a.displayName().lower()]
 
         # Devolver un resumen serializable a JSON
         return [
@@ -307,6 +309,7 @@ class QgisMCPServer(QObject):
         ]
 
     def get_algorithm_details(self, alg_id, **kwargs):
+        """Get parameter definitions and details for a specific algorithm."""
         alg = QgsApplication.processingRegistry().algorithmById(alg_id)
         if not alg:
             return {"error": "Algorithm not found"}
@@ -345,6 +348,7 @@ class QgisMCPServer(QObject):
             raise Exception(f"Processing error: {str(e)}")
 
     def get_project_context(self, **kwargs):
+        """Snapshot of loaded layers, fields, and project CRS."""
         layers = QgsProject.instance().mapLayers().values()
         context = []
         for layer in layers:
@@ -365,6 +369,7 @@ class QgisMCPServer(QObject):
         return context
 
     def load_layer_from_path(self, path: str, name: str = "Nueva Capa", **kwargs):
+        """Load a vector or raster file from disk into the project."""
         import os
 
         if not os.path.exists(path):
@@ -400,7 +405,9 @@ class QgisMCPServer(QObject):
         if not path:
             current = project.fileName()
             if not current:
-                return {"error": "The project has no path. Specify a path using the 'path' parameter."}
+                return {
+                    "error": "The project has no path. Specify a path using the 'path' parameter."
+                }
             path = current
 
         directory = os.path.dirname(path)
@@ -446,7 +453,7 @@ class QgisMCPServer(QObject):
             return {
                 "error": (
                     "Only QGIS project files (.qgz, .qgs) can be deleted.",
-                    f"Received extension: '{ext}'"
+                    f"Received extension: '{ext}'",
                 )
             }
 
@@ -557,15 +564,19 @@ class QgisMCPServer(QObject):
             "features": features_out,
         }
 
-    def show_message(self, text: str, level: str = "info", duration: int = 5, **kwargs) -> dict:
+    def show_message(
+        self, text: str, level: str = "info", duration: int = 5, **kwargs
+    ) -> dict:
         """Display a message in the QGIS message bar for user feedback."""
         if not self.iface:
-            return {"error": "iface unavailable — the server was not started from the plugin"}
+            return {
+                "error": "iface unavailable — the server was not started from the plugin"
+            }
 
         level_map = {
-            "info":    MSG_INFO,
+            "info": MSG_INFO,
             "warning": MSG_WARNING,
-            "error":   MSG_CRITICAL,
+            "error": MSG_CRITICAL,
             "success": MSG_SUCCESS,
         }
         qgis_level = level_map.get(level.lower(), MSG_INFO)
@@ -588,37 +599,39 @@ class QgisMCPServer(QObject):
             iface_obj = getattr(sys.modules.get("qgis.utils"), "iface", None)
             globals_dict = {
                 # -- Proyecto y UI --
-                "QgsProject":    QgsProject,
+                "QgsProject": QgsProject,
                 "QgsApplication": QgsApplication,
-                "iface":         iface_obj,
-                "canvas":        iface_obj.mapCanvas() if iface_obj else None,
+                "iface": iface_obj,
+                "canvas": iface_obj.mapCanvas() if iface_obj else None,
                 # -- Geoprocesamiento --
-                "processing":    sys.modules.get("processing"),
+                "processing": sys.modules.get("processing"),
                 # -- Simbología: renderers --
-                "QgsGraduatedSymbolRenderer":   QgsGraduatedSymbolRenderer,
+                "QgsGraduatedSymbolRenderer": QgsGraduatedSymbolRenderer,
                 "QgsCategorizedSymbolRenderer": QgsCategorizedSymbolRenderer,
-                "QgsSingleSymbolRenderer":      QgsSingleSymbolRenderer,
-                "QgsRendererRange":    QgsRendererRange,
+                "QgsSingleSymbolRenderer": QgsSingleSymbolRenderer,
+                "QgsRendererRange": QgsRendererRange,
                 "QgsRendererCategory": QgsRendererCategory,
                 # -- Simbología: símbolos --
-                "QgsSymbol":      QgsSymbol,
-                "QgsFillSymbol":  QgsFillSymbol,
-                "QgsLineSymbol":  QgsLineSymbol,
+                "QgsSymbol": QgsSymbol,
+                "QgsFillSymbol": QgsFillSymbol,
+                "QgsLineSymbol": QgsLineSymbol,
                 "QgsMarkerSymbol": QgsMarkerSymbol,
                 # -- Clasificación automática --
-                "QgsClassificationJenks":        QgsClassificationJenks,
-                "QgsClassificationQuantile":     QgsClassificationQuantile,
+                "QgsClassificationJenks": QgsClassificationJenks,
+                "QgsClassificationQuantile": QgsClassificationQuantile,
                 "QgsClassificationEqualInterval": QgsClassificationEqualInterval,
                 # -- Estilos y color --
                 "QgsStyle": QgsStyle,
-                "QColor":   QColor,
+                "QColor": QColor,
             }
             # Capture stdout so print() statements are visible to the LLM
             import io
+
             stdout_capture = io.StringIO()
             globals_dict["_result"] = None  # LLM can set this to return structured data
 
             import sys as _sys
+
             _old_stdout = _sys.stdout
             _sys.stdout = stdout_capture
             try:
@@ -654,7 +667,7 @@ class QgisMCPPlugin:
         self.action = None
         self.help_action = None
         self.tool_button = None
-        self._toolbar_action = None 
+        self._toolbar_action = None
 
     def _logo_icon(self):
         """Load the MCP logo from the plugin directory."""
@@ -740,7 +753,7 @@ class QgisMCPPlugin:
 
     def _green_logo_icon(self):
         """Load the green MCP logo for active state."""
-        icon_path = f"{PATH_ASSETS}/icono.png"
+        icon_path = f"{PATH_ASSETS}/icons/icono.png"
         return QIcon(icon_path)
 
     def _show_help(self):
