@@ -5,7 +5,7 @@
 If you find a vulnerability, **DO NOT open a public issue or PR**.
 
 **Contact:**
-- Email: **[whoamy0608@gmail.com]** (replace with actual email)
+- Email: **[whoamy0608@gmail.com]**
 - Subject: `[SECURITY] QGIS MCP - Brief description`
 - Include:
   - Technical description

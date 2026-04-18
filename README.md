@@ -164,6 +164,8 @@ set PYTHONPATH=C:\path\to\mcp_qgis  # Path to QGIS libs
       ],
       "env": {
         "PYTHONPATH": "C:\\path\\to\\mcp_qgis",
+        // optional
+        "PATH_SKILLS": "c:\\path\\to\\skills",
         "QGIS_MCP_HOST": "localhost",
         "QGIS_MCP_PORT": "9876"
       }
@@ -189,6 +191,8 @@ set PYTHONPATH=C:\path\to\mcp_qgis  # Path to QGIS libs
     ],
     "env": {
       "PYTHONPATH": "/path/to/mcp_qgis",
+      // optional
+      "PATH_SKILLS": "c:\\path\\to\\skills",
       "QGIS_MCP_HOST": "localhost",
       "QGIS_MCP_PORT": "9876"
     }
