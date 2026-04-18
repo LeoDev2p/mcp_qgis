@@ -55,7 +55,7 @@ logger = get_logger("QgisMCPServer")
 
 _qgis_connection: QgisMCPClient | None = None
 _connection_validated_at: float = 0.0
-_CONNECTION_TTL: float = 5.0  # seconds between validation checks
+_CONNECTION_TTL: float = 5.0 
 
 
 async def get_qgis_connection() -> QgisMCPClient:
@@ -325,7 +325,7 @@ async def get_layer_features(
             "filter_expression": filter_expression,
             "include_geometry": include_geometry,
         },
-    )
+    ) #LeoDev2p
 
 
 @mcp.tool()
@@ -417,6 +417,22 @@ async def execute_code(code: str) -> dict:
     * Use for styling, custom canvas control, or undocumented edge cases.
     """
     return await _send("execute_code", {"code": code})
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def get_health_status() -> dict:
+    """
+    Get QGIS system health, memory usage, and active task count.
+    """
+    return await _send("get_health_status")
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def list_active_tasks() -> list:
+    """
+    List currently running background tasks in QGIS and their progress.
+    """
+    return await _send("list_active_tasks")
 
 
 # ---------------------------------------------------------------------------

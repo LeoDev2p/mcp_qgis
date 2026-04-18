@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 from typing import ClassVar
 
-import processing
 from qgis.core import (
     Qgis,
     QgsApplication,
@@ -222,6 +221,8 @@ class QgisMCPServer(QObject):
                 "delete_file": self.delete_file,
                 "show_message": self.show_message,
                 "execute_code": self.execute_code,
+                "get_health_status": self.get_health_status,
+                "list_active_tasks": self.list_active_tasks,
             }
 
             handler = handlers.get(cmd_type)
@@ -316,7 +317,6 @@ class QgisMCPServer(QObject):
 
         detalles = {"id": alg.id(), "name": alg.displayName(), "parameters": []}
 
-        # Esto le dice a Claude EXACTAMENTE qué escribir en el JSON
         for param in alg.parameterDefinitions():
             detalles["parameters"].append(
                 {
@@ -330,19 +330,48 @@ class QgisMCPServer(QObject):
         return detalles
 
     def run_processing(self, algorithm: str, parameter: dict = None, **kwargs) -> dict:
-        """Run a QGIS Processing algorithm.
+        """Run a QGIS Processing algorithm synchronously without nested event loops.
 
         Args:
             algorithm: Full algorithm ID (e.g. 'native:buffer').
             parameter: Dict of algorithm parameters with exact names from
                        get_algorithm_details (e.g. {'INPUT': 'path', 'DISTANCE': 100}).
         """
+        from qgis.core import (
+            QgsApplication,
+            QgsProcessingContext,
+            QgsProcessingFeedback,
+        )
+
         try:
             params = parameter or {}
-            output = processing.run(algorithm, params)
+
+            # Get the algorithm
+            alg = QgsApplication.processingRegistry().algorithmById(algorithm)
+            if not alg:
+                raise Exception(f"Algorithm '{algorithm}' not found")
+
+            # Create context and feedback
+            context = QgsProcessingContext()
+            feedback = QgsProcessingFeedback()
+
+            if QgsProject.instance():
+                context.setProject(QgsProject.instance())
+
+            # Execute synchronously without nested event loops
+            results, success = QgsApplication.processingRegistry().run(
+                alg, params, context, feedback
+            )
+
+            if not success:
+                error_msg = (
+                    feedback.htmlLog() or "Processing failed without error message"
+                )
+                raise Exception(error_msg)
+
             return {
                 "algorithm": algorithm,
-                "output": {key: str(value) for key, value in output.items()},
+                "output": {key: str(value) for key, value in (results or {}).items()},
             }
         except Exception as e:
             raise Exception(f"Processing error: {str(e)}")
@@ -623,6 +652,7 @@ class QgisMCPServer(QObject):
                 # -- Estilos y color --
                 "QgsStyle": QgsStyle,
                 "QColor": QColor,
+                # leodev2p
             }
             # Capture stdout so print() statements are visible to the LLM
             import io
@@ -653,6 +683,43 @@ class QgisMCPServer(QObject):
         except Exception as e:
             return {"error": f"Error de ejecución: {str(e)}"}
 
+    def get_health_status(self, **kwargs):
+        """Returns QGIS version, memory usage, and task manager status."""
+        import os
+
+        try:
+            import psutil
+
+            process = psutil.Process(os.getpid())
+            memory_mb = process.memory_info().rss / (1024 * 1024)
+            cpu_pct = process.cpu_percent()
+        except ImportError:
+            memory_mb = -1
+            cpu_pct = -1
+
+        return {
+            "qgis_version": Qgis.QGIS_VERSION,
+            "os": sys.platform,
+            "memory_usage_mb": round(memory_mb, 2),
+            "cpu_usage_percent": cpu_pct,
+            "active_tasks_count": len(QgsApplication.taskManager().activeTasks()),
+            "total_layers": QgsProject.instance().count(),
+            "project_path": QgsProject.instance().fileName(),
+        }
+
+    def list_active_tasks(self, **kwargs):
+        """Returns a list of descriptions and progress for all active tasks."""
+        tasks = QgsApplication.taskManager().activeTasks()
+        return [
+            {
+                "description": task.description(),
+                "progress": round(task.progress(), 1),
+                "is_running": task.isActive(),
+                "can_cancel": task.canCancel(),
+            }
+            for task in tasks
+        ]
+
 
 class QgisMCPPlugin:
     """Main plugin class for QGIS MCP"""
@@ -678,7 +745,9 @@ class QgisMCPPlugin:
         toolbar = self.iface.pluginToolBar()
 
         # Main action (used for menu entry + click handler)
-        self.action = QAction(self._logo_icon(), "Run MCP", self.iface.mainWindow())
+        self.action = QAction(
+            self._logo_icon(), "Run MCP Server", self.iface.mainWindow()
+        )
         self.action.setCheckable(True)
         self.action.setToolTip(f"Start MCP server on port {_PORT}")
         self.action.triggered.connect(self.toggle_server)
@@ -731,8 +800,8 @@ class QgisMCPPlugin:
         self.help_action = QAction("Help / Install MCP Server", self.iface.mainWindow())
         self.help_action.triggered.connect(self._show_help)
 
-        self.iface.addPluginToMenu("QGIS MCP", self.action)
-        self.iface.addPluginToMenu("QGIS MCP", self.help_action)
+        self.iface.addPluginToMenu("QGIS MCP Server", self.action)
+        self.iface.addPluginToMenu("QGIS MCP Server", self.help_action)
 
         # Restore saved port
         saved_port = settings.value(f"{self.SETTINGS_PREFIX}/port", _PORT, type=int)
@@ -765,11 +834,10 @@ class QgisMCPPlugin:
         layout = QVBoxLayout()
         label = QLabel(
             "<p>This plugin is only one half of the setup. You also need an "
-            "<b>MCP server</b> so that Claude (or another LLM) can talk to QGIS.</p>"
-            "<p><b>Quick setup:</b> Run <code>python install.py</code> from the "
-            "repository root to configure your MCP client(s) automatically.</p>"
+            "<b>MCP server</b> so that Claude/Antigravity/Gemini (or another LLM) can talk to QGIS.</p>"
             "<p>Full instructions are on the "
             f'<a href="{self.REPO_URL}#installation">GitHub repository</a>.</p>'
+            "<p>By LeoDev2p</p>"
         )
         label.setWordWrap(True)
         label.setOpenExternalLinks(True)
@@ -810,8 +878,8 @@ class QgisMCPPlugin:
                 self.server.stop()
                 self.server = None
             self.action.setIcon(self._logo_icon())
-            self.action.setText("Run MCP")
-            self.action.setToolTip("Start MCP server")
+            self.action.setText("Run MCP Server")
+            self.action.setToolTip("Start MCP Server")
             self.port_spin.setEnabled(True)
 
     def unload(self):

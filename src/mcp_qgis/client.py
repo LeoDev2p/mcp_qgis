@@ -30,7 +30,6 @@ class QgisMCPClient:
 
     async def connect(self):
         try:
-            # We open an asyncio connection. This is non-blocking.
             self.reader, self.writer = await asyncio.open_connection(
                 self.host, self.port
             )
@@ -91,7 +90,7 @@ class QgisMCPClient:
             ConnectionAbortedError,
             ConnectionError,
         ):
-            raise  # Let callers handle reconnection
+            raise  # Let callers handle reconnection LeoDev2p
         except Exception as e:
             logger.exception("Error sending command")
             return {"status": "error", "message": str(e)}
