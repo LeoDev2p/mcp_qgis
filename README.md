@@ -15,7 +15,7 @@
 
 
 
-Connect [QGIS](https://qgis.org/) to [Claude AI](https://claude.ai/), [Antigravity](https://antigravity.ai/), [Gemini](https://gemini.google.com/) through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), enabling Claude to directly control QGIS — manage layers, edit features, run processing algorithms, render maps, and more.
+Connect [QGIS](https://qgis.org/) to [Claude AI](https://claude.ai/), [Antigravity](https://antigravity.ai/), [Gemini](https://gemini.google.com/) through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/),This allows the LLM to directly control QGIS: manage layers, edit features, run processing algorithms, generate maps, and much more.
 
 ## Architecture
 
@@ -134,6 +134,7 @@ Copy-Item plugin_mcp_qgis -Destination "$env:APPDATA\QGIS\QGIS3\profiles\default
 set QGIS_MCP_PORT=9876              # Port (default 9876)
 set QGIS_MCP_HOST=localhost         # Host (always localhost in v0.1.0)
 set PYTHONPATH=C:\path\to\mcp_qgis  # Path to QGIS libs
+set PATH_SKILLS: c:\\path\\to\\skills # Skills Path
 ```
 
 **Ready.** The server is listening on `localhost:9876`
@@ -265,11 +266,10 @@ Claude will use: `load_layer_from_path()` → `get_layer_features()`
 # Clone skills repository
 git clone https://github.com/LeoDev2p/skills_gis.git
 
-# Copy skills to the correct directory
-cp -r skills_gis/* mcp_qgis/src/mcp_qgis/skills/
+# Copy the skills to the environment variables in the LLM configuration for the QGIS MCP
+"PATH_SKILLS": "c:\\path\\to\\skills"
 
-# Or simply download individual .md files
-# and place them in src/mcp_qgis/skills/
+# See the LLM settings section
 ```
 
 ### Tools to Interact with Skills
